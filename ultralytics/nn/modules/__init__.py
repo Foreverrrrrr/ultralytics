@@ -190,3 +190,11 @@ __all__ += (
     "C3k",
     "Bottleneck_FRFN"
     )
+
+from .CAFM import C2PSA_CAFM, PSABlock_CAFM, Attention
+
+__all__ += (
+    "Attention",
+    "PSABlock_CAFM",
+    "C2PSA_CAFM"
+    )

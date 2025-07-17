@@ -1,7 +1,6 @@
 import os
 from ultralytics import YOLO
 from PIL import Image
-from ultralytics.nn.modules.FRFN import C3k2_FRFN, FRFN, C3k, Bottleneck_FRFN
 
 # 定义训练集和验证集图像文件夹路径
 train_folder = r'D:\AI\Ai\Internship 2.v1-bigtiles.yolov8\train'

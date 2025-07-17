@@ -3,8 +3,6 @@ import torch.nn as nn
 from einops import rearrange
 import math
  
- 
- 
 class FRFN(nn.Module):
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU, drop=0., use_eca=False):
         super().__init__()
@@ -54,7 +52,6 @@ class FRFN(nn.Module):
  
         return x
  
- 
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
     """Pad to 'same' shape outputs."""
     if d > 1:
@@ -62,7 +59,6 @@ def autopad(k, p=None, d=1):  # kernel, padding, dilation
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
- 
  
 class Conv(nn.Module):
     """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
