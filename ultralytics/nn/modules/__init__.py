@@ -180,3 +180,13 @@ __all__ = (
     "Index",
     "A2C2f",
 )
+
+from .FRFN import C3k2_FRFN, FRFN, C3k, Bottleneck_FRFN
+
+__all__ += (
+    "A2C2f",
+    "C3k2_FRFN",
+    "FRFN",
+    "C3k",
+    "Bottleneck_FRFN"
+    )

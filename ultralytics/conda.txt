@@ -1,0 +1,26 @@
+# Clone the ultralytics repository
+git clone https://github.com/ultralytics/ultralytics
+
+# Navigate to the cloned directory
+cd ultralytics
+
+# Install the package in editable mode for development
+pip install -e .
+
+pip install ultralytics --no-deps
+
+# Install other core dependencies
+pip install torch torchvision numpy matplotlib pandas pyyaml pillow psutil requests tqdm scipy seaborn ultralytics-thop
+
+# Install headless OpenCV instead of the default
+pip install opencv-python-headless
+
+pip install py-cpuinfo
+pip install einops
+pip install -U openvino
+
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+pip uninstall ultralytics 
+pip install -e .
+
