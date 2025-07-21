@@ -3,6 +3,19 @@ import torch.nn as nn
 from einops import rearrange
 import math
  
+class ECA(nn.Module):
+    def __init__(self, channels, k_size=3):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size-1)//2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        y = self.avg_pool(x)
+        y = self.conv(y.squeeze(-1).transpose(-1, -2))
+        y = self.sigmoid(y).transpose(-1, -2).unsqueeze(-1)
+        return x * y.expand_as(x)
+
 class FRFN(nn.Module):
     def __init__(self, dim=32, hidden_dim=128, act_layer=nn.GELU, drop=0., use_eca=False):
         super().__init__()
@@ -14,11 +27,15 @@ class FRFN(nn.Module):
         self.linear2 = nn.Sequential(nn.Linear(hidden_dim, dim))
         self.dim = dim
         self.hidden_dim = hidden_dim
- 
+
         self.dim_conv = self.dim // 4
         self.dim_untouched = self.dim - self.dim_conv
         self.partial_conv3 = nn.Conv2d(self.dim_conv, self.dim_conv, 3, 1, 1, bias=False)
- 
+
+        self.use_eca = use_eca
+        if use_eca:
+            self.eca = ECA(dim)
+
     def forward(self, x):
         # bs x hw x c
         B, C, H, W= x.shape
@@ -46,9 +63,11 @@ class FRFN(nn.Module):
         x = x_1 * x_2
  
         x = self.linear2(x)
-        # x = self.eca(x)
-        x = x.reshape(x.shape[0], int(H), int(W), x.shape[2]).permute(0, 3, 1,
-                                                                                                              2)
+        if self.use_eca:
+            x = x.reshape(x.shape[0], int(H), int(W), x.shape[2]).permute(0, 3, 1, 2)
+            x = self.eca(x)
+        else:
+            x = x.reshape(x.shape[0], int(H), int(W), x.shape[2]).permute(0, 3, 1, 2)
  
         return x
  
@@ -138,35 +157,38 @@ class C3(nn.Module):
 class Bottleneck_FRFN(nn.Module):
     """Standard bottleneck."""
  
-    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5):
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=0.5, use_eca=False):
         """Initializes a standard bottleneck module with optional shortcut connection and configurable parameters."""
         super().__init__()
         c_ = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, c_, k[0], 1)
-        self.cv2 = FRFN(c_)
+        self.cv2 = FRFN(c_, use_eca=use_eca)
         self.add = shortcut and c1 == c2
  
     def forward(self, x):
         """Applies the YOLO FPN to input data."""
         return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
  
-class C3k(C3):
+class C3k(nn.Module):
     """C3k is a CSP bottleneck module with customizable kernel sizes for feature extraction in neural networks."""
  
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5, k=3):
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5, k=3, use_eca=False):
         """Initializes the C3k module with specified channels, number of layers, and configurations."""
-        super().__init__(c1, c2, n, shortcut, g, e)
+        super().__init__()
         c_ = int(c2 * e)  # hidden channels
         # self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
-        self.m = nn.Sequential(*(Bottleneck_FRFN(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(*(Bottleneck_FRFN(c_, c_, shortcut, g, k=(k, k), e=1.0, use_eca=use_eca) for _ in range(n)))
  
-# 在c3k=True时，使用Bottleneck_CGLU特征融合，为false的时候我们使用普通的Bottleneck提取特征
+    def forward(self, x):
+        """Forward pass through the CSP bottleneck with 2 convolutions."""
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+ 
 class C3k2_FRFN(C2f):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
  
-    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True, use_eca=False):
         """Initializes the C3k2 module, a faster CSP Bottleneck with 2 convolutions and optional C3k blocks."""
         super().__init__(c1, c2, n, shortcut, g, e)
         self.m = nn.ModuleList(
-            C3k(self.c, self.c, 2, shortcut, g) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
+            C3k(self.c, self.c, 2, shortcut, g, use_eca=use_eca) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
         )

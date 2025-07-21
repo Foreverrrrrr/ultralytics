@@ -10,14 +10,15 @@ pip install -e .
 pip install ultralytics --no-deps
 
 # Install other core dependencies
-pip install torch torchvision numpy matplotlib pandas pyyaml pillow psutil requests tqdm scipy seaborn ultralytics-thop
+pip install numpy matplotlib pandas pyyaml pillow psutil requests tqdm scipy seaborn ultralytics-thop
 
 # Install headless OpenCV instead of the default
-pip install opencv-python-headless
 
+pip install -U openvino
+pip install opencv-python-headless
 pip install py-cpuinfo
 pip install einops
-pip install -U openvino
+
 
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 

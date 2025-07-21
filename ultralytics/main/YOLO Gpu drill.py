@@ -3,8 +3,8 @@ from ultralytics import YOLO
 from PIL import Image
 
 # 定义训练集和验证集图像文件夹路径
-train_folder = r'D:\AI\Ai\Internship 2.v1-bigtiles.yolov8\train'
-val_folder = r'D:\AI\Ai\Internship 2.v1-bigtiles.yolov8\valid'
+train_folder = r'D:\AI\Ai\Internship 2.v2i.yolov8\train'
+val_folder = r'D:\AI\Ai\Internship 2.v2i.yolov8\valid'
 
 # 定义一个函数用于处理指定文件夹中的图像
 def process_images(folder):
@@ -24,7 +24,7 @@ def process_images(folder):
 
 def main():
     model = YOLO(r"ultralytics\cfg\models\11\FRFN.yaml").load("yolo11n.pt")
-    data_path = r'D:\AI\Ai\Internship 2.v1-bigtiles.yolov8\data.yaml'
+    data_path = r'D:\AI\Ai\Internship 2.v2i.yolov8\data.yaml'
     if os.path.exists(data_path):
         print(f"文件 {data_path} 存在。")
     else:
