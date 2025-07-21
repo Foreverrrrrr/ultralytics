@@ -23,7 +23,7 @@ def process_images(folder):
             print(f"处理 {file_path} 时出现错误: {e}")
 
 def main():
-    model = YOLO(r"ultralytics\cfg\models\11\FRFN.yaml").load("yolo11n.pt")
+    model = YOLO(r"ultralytics\cfg\models\11\FRFN.yaml").load("yolo11m.pt")
     data_path = r'D:\AI\Ai\Internship 2.v2i.yolov8\data.yaml'
     if os.path.exists(data_path):
         print(f"文件 {data_path} 存在。")
