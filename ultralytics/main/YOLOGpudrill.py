@@ -78,6 +78,8 @@ def main():
     print(f"模型已保存为 ONNX 格式，路径为: {onnx_path}")
     trt_path = model.export(format='engine')
     print(f"模型已保存为 TensorRT 格式，路径为: {trt_path}")
+    openvino_path = model.export(format='openvino')
+    print(f"模型已保存为 OpenVINO 格式，路径为: {openvino_path}")
 
 if __name__ == '__main__':
     process_images(train_folder)
