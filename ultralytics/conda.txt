@@ -23,9 +23,11 @@ pip install einops
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # 安装核心依赖
-pip install onnx==1.17.0 onnxruntime==1.18.0 onnx-simplifier==0.4.35
-# 可选：安装GPU版ONNX Runtime（如果有NVIDIA GPU）
+pip install onnx==1.17.0 onnxruntime==1.18.0 
+pip install onnxsim
 pip install onnxruntime-gpu==1.18.0
+
+pip install tensorrt-8.6.1-cp311-none-win_amd64.whl
 
 pip uninstall ultralytics 
 pip install -e .

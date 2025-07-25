@@ -2,6 +2,7 @@ import os
 from ultralytics import YOLO
 from PIL import Image
 import torch
+import onnx
 
 train_folder = r'D:\AI\Ai\yolo\dataset\images\train'
 val_folder = r'D:\AI\Ai\yolo\dataset\images\val'
@@ -50,6 +51,16 @@ class GradChecker:
             hook.remove()
         self.hooks.clear()
 
+def make_batch_dynamic(onnx_path_in, onnx_path_out):
+    model = onnx.load(onnx_path_in)
+    for input_tensor in model.graph.input:
+        shape = input_tensor.type.tensor_type.shape
+        if len(shape.dim) > 0:
+            shape.dim[0].dim_value = 0
+            shape.dim[0].dim_param = 'batch_size' 
+    onnx.save(model, onnx_path_out)
+    print(f"已保存动态 batch ONNX 模型到: {onnx_path_out}")
+
 def main():
     model = YOLO(r"ultralytics\cfg\models\11\FRFN.yaml").load("yolo11n.pt")
     if os.path.exists(yaml_path):
@@ -74,12 +85,15 @@ def main():
     )
     grad_checker.remove_hooks()
     model.save('custom_yolo11_model.pt')
-    onnx_path = model.export(format='onnx')
+    onnx_path = model.export(
+    format='onnx',
+    dynamic=True,  # 关键参数
+    opset=17,      # 推荐 17 及以上，兼容性好
+    simplify=True,
+    )
     print(f"模型已保存为 ONNX 格式，路径为: {onnx_path}")
-    trt_path = model.export(format='engine')
-    print(f"模型已保存为 TensorRT 格式，路径为: {trt_path}")
-    openvino_path = model.export(format='openvino')
-    print(f"模型已保存为 OpenVINO 格式，路径为: {openvino_path}")
+    dynamic_onnx_path = os.path.splitext(onnx_path)[0] + '_dynamic.onnx'
+    make_batch_dynamic(onnx_path, dynamic_onnx_path)
 
 if __name__ == '__main__':
     process_images(train_folder)
