@@ -2,22 +2,27 @@ import os
 from ultralytics import YOLO
 from PIL import Image
 import torch
-import onnx
 
-train_folder = r'D:\AI\Ai\yolo\dataset\images\train'
-val_folder = r'D:\AI\Ai\yolo\dataset\images\val'
-yaml_path = r'D:\AI\Ai\yolo\dataset\data.yaml'
+train_folder = r'C:\Users\Forever\Desktop\data integration\metal\QRDATA\QRcode\images'
+val_folder = r'C:\Users\Forever\Desktop\data integration\metal\QRDATA\QRcode\images\val'
+yaml_path = r'C:\Users\Forever\Desktop\data integration\metal\QRDATA\QRcode\data.yaml'
+model_cfg = r"ultralytics/cfg/models/11/FRFN.yaml"
+pretrained = "yolo11s.pt"
+imgsz = 640
+epochs = 150
+batch = 8
 
 def process_images(folder):
+    print(f"正在处理图片文件夹: {folder}")
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
         try:
             with Image.open(file_path) as img:
-                if img.format == 'GIF':
-                    print(f"发现 GIF 图像: {file_path}，正在转换...")
+                if img.format in ['GIF', 'PNG', 'BMP']:
+                    print(f"发现 {img.format} 图像: {file_path}，正在转换...")
                     new_file_path = os.path.splitext(file_path)[0] + '.jpg'
                     img = img.convert('RGB')
-                    img.save(new_file_path, 'JPG')
+                    img.save(new_file_path, 'JPEG')
                     os.remove(file_path)
                     print(f"已将 {file_path} 转换为 {new_file_path}")
         except Exception as e:
@@ -45,57 +50,126 @@ class GradChecker:
             if grad.abs().max() > self.threshold:
                 print(f"🚨 Gradient too large in: {name}, max grad: {grad.abs().max().item()}")
         return hook_fn
-    
+
     def remove_hooks(self):
         for hook in self.hooks:
             hook.remove()
         self.hooks.clear()
 
-def make_batch_dynamic(onnx_path_in, onnx_path_out):
-    model = onnx.load(onnx_path_in)
-    for input_tensor in model.graph.input:
-        shape = input_tensor.type.tensor_type.shape
-        if len(shape.dim) > 0:
-            shape.dim[0].dim_value = 0
-            shape.dim[0].dim_param = 'batch_size' 
-    onnx.save(model, onnx_path_out)
-    print(f"已保存动态 batch ONNX 模型到: {onnx_path_out}")
-
 def main():
-    model = YOLO(r"ultralytics\cfg\models\11\FRFN.yaml").load("yolo11n.pt")
-    if os.path.exists(yaml_path):
-        print(f"文件 {yaml_path} 存在。")
-    else:
-        print(f"文件 {yaml_path} 不存在，请检查路径和文件是否正确。")
+    print("========== YOLO 训练启动 ==========")
+    if not os.path.exists(yaml_path):
+        print(f"❌ 数据文件 {yaml_path} 不存在，请检查路径和文件是否正确。")
         return
-    grad_checker = GradChecker(model.model, threshold=1e3) 
-    results = model.train(
-        data=yaml_path,
-        multi_scale=False,
-        epochs=1,
-        imgsz=640,
-        batch=8,
-        lr0=0.001,  # 初始学习率
-        lrf=0.00001,  # 最终学习率
-        cos_lr=True,  # 余弦调度器
-        augment=True,  # 数据增强
-        degrees=120,  # 随机旋转
-        mosaic=True,
-        close_mosaic=100,
-    )
+        
+    if not os.path.exists(model_cfg):
+        print(f"❌ 模型配置文件 {model_cfg} 不存在，请检查路径和文件是否正确。")
+        return
+    
+    print("✅ 配置文件检查通过")
+    print(f"📁 数据配置: {yaml_path}")
+    print(f"🏗️ 模型配置: {model_cfg}")
+    print(f"🎯 预训练权重: {pretrained}")
+    try:
+        print("🔄 加载模型配置和预训练权重...")
+        model = YOLO(model_cfg).load(pretrained)
+        print("✅ 模型加载成功")
+        print(f"📊 模型参数统计:")
+        total_params = sum(p.numel() for p in model.model.parameters())
+        trainable_params = sum(p.numel() for p in model.model.parameters() if p.requires_grad)
+        print(f"   总参数数: {total_params:,}")
+        print(f"   可训练参数数: {trainable_params:,}")
+        
+    except Exception as e:
+        print(f"❌ 模型加载失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return
+    
+    grad_checker = GradChecker(model.model, threshold=1e3)
+    print("🔍 梯度检查器已启动")
+    print("🚀 开始训练...")
+    try:
+        results = model.train(
+            data=yaml_path,
+            multi_scale=True,
+            epochs=epochs,
+            imgsz=imgsz,
+            batch=batch,
+            lr0=0.005,     # 降低初始学习率，减少震荡
+            lrf=0.0001,
+            cos_lr=True,
+            augment=True,
+            degrees=80,      # 减少旋转角度，降低数据增强强度
+            mosaic=True,
+            close_mosaic=50, # 提前关闭mosaic，稳定后期训练
+            verbose=True,
+            patience=50,     # 减少早停耐心，避免过拟合
+            warmup_epochs=5, # 添加预热，稳定初期训练
+            weight_decay=0.0005, # 添加权重衰减，防止过拟合
+        )
+        print("✅ 训练完成")
+        
+    except Exception as e:
+        print(f"❌ 训练过程中发生错误: {e}")
+        import traceback
+        traceback.print_exc()
+        grad_checker.remove_hooks()
+        return
+    
     grad_checker.remove_hooks()
-    model.save('custom_yolo11_model.pt')
-    onnx_path = model.export(
-    format='onnx',
-    dynamic=True,  # 关键参数
-    opset=17,      # 推荐 17 及以上，兼容性好
-    simplify=True,
-    )
-    print(f"模型已保存为 ONNX 格式，路径为: {onnx_path}")
-    dynamic_onnx_path = os.path.splitext(onnx_path)[0] + '_dynamic.onnx'
-    make_batch_dynamic(onnx_path, dynamic_onnx_path)
+    print("🧹 梯度检查器已清理")
+    print("💾 正在保存模型...")
+    try:
+        model.save('custom_yolo11_model.pt')
+        print("✅ 模型保存成功: custom_yolo11_model.pt")
+    except Exception as e:
+        print(f"❌ 模型保存失败: {e}")
+    print("🔄 正在导出 ONNX 模型...")
+    try:
+        # 首先导出静态尺寸版本（精度更高）
+        print("📦 导出静态尺寸ONNX模型...")
+        static_onnx_path = model.export(
+            format='onnx',
+            dynamic=False,        # 静态尺寸，精度更高
+            simplify=False,       # 不简化，保持精度
+            opset=17,            # 使用较新算子集
+            imgsz=(640, 640),    # 固定尺寸
+            half=False,          # 使用FP32精度（不使用FP16）
+            int8=False,          # 不使用INT8量化
+            verbose=True         # 显示详细信息
+        )
+        print(f"✅ 静态ONNX模型导出成功: {static_onnx_path}")
+        
+        # 然后导出动态尺寸版本（灵活性更高）
+        print("🔄 导出动态尺寸ONNX模型...")
+        onnx_path = model.export(
+            format='onnx',
+            dynamic=True,         # 动态尺寸，灵活性高
+            simplify=False,       # 不简化，保持精度  
+            opset=17,            # 使用较新算子集
+            imgsz=(640, 640),    # 默认尺寸
+            half=False,          # 使用FP32精度
+            int8=False,          # 不使用INT8量化
+            verbose=True         # 显示详细信息
+        )
+        print(f"✅ 动态ONNX模型导出成功: {onnx_path}")
+        
+        # 精度验证建议
+        print("\n📊 精度验证建议:")
+        print("1. 静态模型 (xxx.onnx) - 推荐用于生产环境，精度最高")
+        print("2. 动态模型 (xxx_dynamic.onnx) - 用于多尺寸推理，精度略有下降")
+        print("3. 建议使用验证集对比PyTorch和ONNX模型的mAP差异")
+        
+    except Exception as e:
+        print(f"❌ ONNX 导出失败: {e}")
+        import traceback
+        traceback.print_exc()
+    print("🎉 ========== 训练与导出全部完成 ==========")
 
 if __name__ == '__main__':
+    print("🖼️ 开始预处理图像...")
     process_images(train_folder)
     process_images(val_folder)
+    print("✅ 图像预处理完成")
     main()

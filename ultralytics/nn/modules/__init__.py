@@ -184,17 +184,16 @@ __all__ = (
 from .FRFN import C3k2_FRFN, FRFN, C3k, Bottleneck_FRFN
 
 __all__ += (
-    "A2C2f",
     "C3k2_FRFN",
-    "FRFN",
+    "FRFN", 
     "C3k",
     "Bottleneck_FRFN"
-    )
+)
 
-from .CAFM import C2PSA_CAFM, PSABlock_CAFM, Attention
+from .CAFM import C2PSA_CAFM, PSABlock_CAFM, SimplifiedAttention
 
 __all__ += (
-    "Attention",
+    "C2PSA_CAFM",
     "PSABlock_CAFM",
-    "C2PSA_CAFM"
-    )
+    "SimplifiedAttention"
+)
